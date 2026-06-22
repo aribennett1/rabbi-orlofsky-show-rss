@@ -1,11 +1,12 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { BASE_URL, USER_AGENT } from './lib/constants.js';
+import { BASE_URL, FEED_URL, USER_AGENT } from './lib/constants.js';
 import {
   buildGuid,
   buildItemXml,
   countItems,
+  ensureNewFeedUrl,
   extractMp3Url,
   fetchContentLength,
   indexGuids,
@@ -98,6 +99,7 @@ async function main() {
     console.log(`Added: ${label}`);
   }
   merged = updateLastBuildDate(merged);
+  merged = ensureNewFeedUrl(merged, FEED_URL);
 
   if (args.dryRun) {
     console.log(`Dry run complete. Would add ${toPrepend.length}, skip ${skipped}.`);

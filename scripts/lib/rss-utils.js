@@ -257,6 +257,17 @@ export function updateLastBuildDate(xml, date = new Date()) {
   return xml.replace(/<lastBuildDate>[^<]*<\/lastBuildDate>/, `<lastBuildDate>${value}</lastBuildDate>`);
 }
 
+export function ensureNewFeedUrl(xml, feedUrl) {
+  const tag = `<itunes:new-feed-url>${feedUrl}</itunes:new-feed-url>`;
+  if (xml.includes('<itunes:new-feed-url>')) {
+    return xml.replace(/<itunes:new-feed-url>[^<]*<\/itunes:new-feed-url>/, tag);
+  }
+  if (!xml.includes('</itunes:owner>')) {
+    throw new Error('Invalid RSS: missing </itunes:owner> for itunes:new-feed-url');
+  }
+  return xml.replace('</itunes:owner>', `</itunes:owner>${tag}`);
+}
+
 export function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

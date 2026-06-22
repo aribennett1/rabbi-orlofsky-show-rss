@@ -41,3 +41,5 @@ Do **not** use URL Mappings for this. Use:
 **Pages → Podcast → Settings → Feeds → Podcasting → Change Feed → Moving from Squarespace**
 
 Enter the GitHub Pages feed URL above. Keep the redirect in place for at least four weeks after switching.
+
+**Important:** Squarespace does not HTTP-redirect the RSS URL. It adds `<itunes:new-feed-url>` to the old Squarespace feed. Apple Podcasts uses that tag (plus the same tag on the new feed) to find the new location. Visiting `rabbiorlofsky.com/podcast?format=rss` in a browser will still show Squarespace XML — that is expected.

@@ -33,9 +33,5 @@ jobs:
             exit 0
           fi
           git add rss-feed.xml
-          git commit -m "$(cat <<'EOF'
-Update RSS feed from Squarespace JSON.
-
-EOF
-)"
+          git commit -m "Update RSS feed from Squarespace JSON."
           git push

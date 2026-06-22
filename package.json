@@ -1,0 +1,9 @@
+{
+  "name": "rabbi-orlofsky-show-rss",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "backfill": "node scripts/backfill.js",
+    "merge": "node scripts/merge-feed.js"
+  }
+}

@@ -1,4 +1,4 @@
-import { WEBSITE_ID } from './constants.js';
+import { BASE_URL, WEBSITE_ID } from './constants.js';
 
 export function buildGuid(collectionId, itemId) {
   return `${WEBSITE_ID}:${collectionId}:${itemId}`;
@@ -104,9 +104,23 @@ export function imageHref(assetUrl) {
   return assetUrl.includes('?') ? assetUrl : `${assetUrl}?format=1500w`;
 }
 
+export function resolveItemLink(item) {
+  const fullUrl = item.fullUrl;
+  if (fullUrl) {
+    if (fullUrl.startsWith('http')) {
+      return fullUrl;
+    }
+    if (fullUrl.startsWith('/')) {
+      return `${BASE_URL}${fullUrl}`;
+    }
+    return `${BASE_URL}/${fullUrl}`;
+  }
+  return `${BASE_URL}/podcast/${item.urlId}`;
+}
+
 export function buildItemXml(item, { mp3Url, length }) {
   const guid = buildGuid(item.collectionId, item.id);
-  const link = item.fullUrl || `https://www.rabbiorlofsky.com/podcast/${item.urlId}`;
+  const link = resolveItemLink(item);
   const title = item.title;
   const creator = item.author?.displayName || item.author || 'Michoel Samuels';
   const pubDate = formatPubDate(item.publishOn);

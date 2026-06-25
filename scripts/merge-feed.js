@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { BASE_URL, FEED_URL, USER_AGENT } from './lib/constants.js';
+import { BASE_URL, MERGE_FEEDS, USER_AGENT } from './lib/constants.js';
 import {
   buildGuid,
   buildItemXml,
@@ -16,8 +16,6 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
-const FEED_PATH = path.join(ROOT, 'rss-feed.xml');
-const RECENT_PAGE_URL = `${BASE_URL}/podcast?format=json-pretty`;
 
 function parseArgs(argv) {
   const args = { dryRun: false };
@@ -31,13 +29,14 @@ function parseArgs(argv) {
   return args;
 }
 
-async function fetchRecentItems() {
-  const response = await fetch(RECENT_PAGE_URL, {
+async function fetchRecentItems(sourcePath) {
+  const recentPageUrl = `${BASE_URL}${sourcePath}?format=json-pretty`;
+  const response = await fetch(recentPageUrl, {
     headers: { 'User-Agent': USER_AGENT },
     signal: AbortSignal.timeout(30000),
   });
   if (!response.ok) {
-    throw new Error(`GET ${RECENT_PAGE_URL} returned ${response.status}`);
+    throw new Error(`GET ${recentPageUrl} returned ${response.status}`);
   }
   const data = await response.json();
   return data.items || [];
@@ -52,16 +51,16 @@ async function buildItemFromJson(item) {
   return buildItemXml(item, { mp3Url, length });
 }
 
-async function main() {
-  const args = parseArgs(process.argv);
-  const xml = await fs.readFile(FEED_PATH, 'utf8');
+async function mergeFeed(feed, args) {
+  const feedPath = path.join(ROOT, feed.feedFile);
+  const xml = await fs.readFile(feedPath, 'utf8');
   const existingGuids = indexGuids(xml);
   const initialCount = countItems(xml);
 
-  console.log(`Loaded ${FEED_PATH} (${initialCount} items)`);
-  console.log(`Fetching recent episodes from Squarespace JSON...`);
+  console.log(`Loaded ${feed.feedFile} (${initialCount} items)`);
+  console.log(`Fetching recent episodes from ${feed.sourcePath}...`);
 
-  const sourceItems = await fetchRecentItems();
+  const sourceItems = await fetchRecentItems(feed.sourcePath);
   console.log(`Fetched ${sourceItems.length} recent post(s)`);
 
   const toPrepend = [];
@@ -88,7 +87,7 @@ async function main() {
 
   if (toPrepend.length === 0) {
     console.log(`No new episodes. Skipped ${skipped} post(s) without audio.`);
-    return;
+    return false;
   }
 
   toPrepend.sort((a, b) => a.publishOn - b.publishOn);
@@ -99,20 +98,30 @@ async function main() {
     console.log(`Added: ${label}`);
   }
   merged = updateLastBuildDate(merged);
-  merged = ensureNewFeedUrl(merged, FEED_URL);
+  merged = ensureNewFeedUrl(merged, feed.feedUrl);
 
   if (args.dryRun) {
     console.log(`Dry run complete. Would add ${toPrepend.length}, skip ${skipped}.`);
-    return;
+    return false;
   }
 
   if (merged === xml) {
     console.log('Feed unchanged after merge.');
-    return;
+    return false;
   }
 
-  await fs.writeFile(FEED_PATH, merged, 'utf8');
+  await fs.writeFile(feedPath, merged, 'utf8');
   console.log(`Done. Items: ${initialCount} -> ${countItems(merged)}`);
+  return true;
+}
+
+async function main() {
+  const args = parseArgs(process.argv);
+
+  for (const feed of MERGE_FEEDS) {
+    console.log(`\n=== ${feed.label} ===`);
+    await mergeFeed(feed, args);
+  }
 }
 
 main().catch((error) => {

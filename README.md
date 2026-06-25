@@ -45,7 +45,7 @@ npm run merge
 
 ## GitHub Action
 
-The workflow in `.github/workflows/update-rss.yml` runs daily at **9:01 AM EST** (14:01 UTC) and can be triggered manually from the Actions tab. It merges `rss-feed.xml`, `parsha-in-5.xml`, and `q-and-a.xml`, then commits and pushes if any changed.
+The workflow in `.github/workflows/update-rss.yml` runs daily at **9:01 AM Eastern** (DST-aware via dual UTC crons) and can be triggered manually from the Actions tab. It merges `rss-feed.xml`, `parsha-in-5.xml`, and `q-and-a.xml`, then commits and pushes if any changed.
 
 ## Feed migration
 

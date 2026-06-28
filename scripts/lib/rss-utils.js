@@ -57,6 +57,100 @@ export function extractMp3Url(body) {
   return [...new Set(matches)][0] || null;
 }
 
+export function extractDescriptionHtml(html) {
+  const body = String(html || '').trim();
+  if (!body) {
+    return '';
+  }
+
+  const textBlocks = [];
+  for (const match of body.matchAll(/<div class="sqs-html-content"[^>]*>([\s\S]*?)<\/div>/gi)) {
+    const content = match[1].trim();
+    if (content) {
+      textBlocks.push(content);
+    }
+  }
+  if (textBlocks.length > 0) {
+    return textBlocks.join('');
+  }
+
+  if (!body.includes('sqs-layout')) {
+    return body;
+  }
+
+  return stripHtml(body);
+}
+
+export function parseByteLength(value) {
+  if (value == null || value === '') {
+    return null;
+  }
+  const cleaned = String(value).replace(/[^\d]/g, '');
+  const bytes = Number(cleaned);
+  return Number.isFinite(bytes) && bytes > 0 ? bytes : null;
+}
+
+export function parseEnclosureLength(itemXml) {
+  const match = itemXml.match(/<enclosure[^>]+length="([^"]+)"/);
+  return match ? parseByteLength(match[1]) : null;
+}
+
+export function replaceItemDescription(itemXml, descriptionHtml) {
+  return itemXml.replace(
+    /<description>(?:<!\[CDATA\[[\s\S]*?\]\]>|[^<]*)<\/description>/,
+    `<description>${cdata(descriptionHtml)}</description>`,
+  );
+}
+
+export function ensureItunesDuration(itemXml, duration) {
+  if (itemXml.includes('<itunes:duration>')) {
+    return itemXml;
+  }
+  return itemXml.replace(
+    '</itunes:explicit>',
+    `</itunes:explicit><itunes:duration>${duration}</itunes:duration>`,
+  );
+}
+
+export function ensureItunesEpisodeType(itemXml, episodeType = 'full') {
+  if (itemXml.includes('<itunes:episodeType>')) {
+    return itemXml;
+  }
+  return itemXml.replace(
+    /(<itunes:title>[\s\S]*?<\/itunes:title>)/,
+    `$1<itunes:episodeType>${episodeType}</itunes:episodeType>`,
+  );
+}
+
+export function normalizeItemXml(itemXml) {
+  let next = itemXml;
+  const changes = { description: false, duration: false, episodeType: false };
+
+  const descMatch = itemXml.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/);
+  if (descMatch?.[1].includes('sqs-layout')) {
+    const clean = extractDescriptionHtml(descMatch[1]);
+    if (clean && clean !== descMatch[1]) {
+      next = replaceItemDescription(next, clean);
+      changes.description = true;
+    }
+  }
+
+  if (!next.includes('<itunes:duration>')) {
+    const length = parseEnclosureLength(next);
+    if (length) {
+      next = ensureItunesDuration(next, formatDurationFromBytes(length));
+      changes.duration = true;
+    }
+  }
+
+  if (!next.includes('<itunes:episodeType>')) {
+    next = ensureItunesEpisodeType(next);
+    changes.episodeType = true;
+  }
+
+  return { itemXml: next, changes };
+}
+
 export function backblazeUrlForHead(mp3Url) {
   const blubrryMatch = mp3Url.match(/blubrry\.com\/rabbi_orlofsky_show\/(.+)/i);
   if (blubrryMatch) {
@@ -124,8 +218,9 @@ export function buildItemXml(item, { mp3Url, length }) {
   const title = item.title;
   const creator = item.author?.displayName || item.author || 'Michoel Samuels';
   const pubDate = formatPubDate(item.publishOn);
-  const descriptionHtml = item.body || item.excerpt || '';
-  const summary = stripHtml(item.excerpt || item.body || title);
+  const rawBody = item.body || item.excerpt || '';
+  const descriptionHtml = extractDescriptionHtml(rawBody);
+  const summary = stripHtml(descriptionHtml || item.excerpt || title);
   const subtitle = summary.split('\n')[0] || title;
   const episode = /^\d+$/.test(String(item.urlId)) ? item.urlId : null;
   const image = imageHref(item.assetUrl);

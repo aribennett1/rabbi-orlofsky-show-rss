@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "backfill": "node scripts/backfill.js",
-    "merge": "node scripts/merge-feed.js"
+    "merge": "node scripts/merge-feed.js",
+    "normalize": "node scripts/normalize-feeds.js"
   }
 }

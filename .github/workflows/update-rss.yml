@@ -7,10 +7,6 @@ on:
     - cron: '2 14 * * *'
   workflow_dispatch:
 
-concurrency:
-  group: update-rss
-  cancel-in-progress: true
-
 permissions:
   contents: write
 
@@ -18,35 +14,16 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - name: Should run
-        id: should_run
-        run: |
-          if [ "${{ github.event_name }}" != "schedule" ]; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          HOUR=$(TZ=America/New_York date +%H)
-          if [ "$HOUR" = "09" ]; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "Not 9 AM Eastern, skipping scheduled run."
-          fi
-
       - uses: actions/checkout@v6
-        if: steps.should_run.outputs.run == 'true'
 
       - uses: actions/setup-node@v6
-        if: steps.should_run.outputs.run == 'true'
         with:
           node-version: '20'
 
       - name: Merge recent Squarespace episodes into feed
-        if: steps.should_run.outputs.run == 'true'
         run: node scripts/merge-feed.js
 
       - name: Commit and push if changed
-        if: steps.should_run.outputs.run == 'true'
         run: |
           changed=0
           for file in rss-feed.xml parsha-in-5.xml q-and-a.xml; do

@@ -57,6 +57,107 @@ export function extractMp3Url(body) {
   return [...new Set(matches)][0] || null;
 }
 
+const PARAGRAPH_ATTRS = 'data-rte-preserve-empty="true" style="white-space:pre-wrap;"';
+
+function emptyParagraph() {
+  return `<p ${PARAGRAPH_ATTRS}></p>`;
+}
+
+function isEmptyParagraphHtml(paragraphHtml) {
+  return /^<p\b[^>]*>\s*<\/p>$/i.test(paragraphHtml);
+}
+
+function wrapParagraph(innerHtml) {
+  return `<p ${PARAGRAPH_ATTRS}>${innerHtml}</p>`;
+}
+
+function extractParagraphContents(html) {
+  return [...String(html).matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map((match) => match[1]);
+}
+
+function paragraphText(content) {
+  return stripHtml(content).trim();
+}
+
+function needsSeparatorAfter(content) {
+  const text = paragraphText(content);
+  return (
+    text === '~~~'
+    || /sponsored by/i.test(text)
+    || /Sponsorship opportunities/i.test(text)
+    || text.startsWith('🟢')
+  );
+}
+
+function needsSeparatorBefore(content) {
+  const text = paragraphText(content);
+  return (
+    text === '~~~'
+    || /Sponsorship opportunities/i.test(text)
+    || text.startsWith('🟢')
+    || text.startsWith('Follow Rabbi')
+  );
+}
+
+function needsSeparatorBetween(prevContent, nextContent) {
+  return needsSeparatorAfter(prevContent) || needsSeparatorBefore(nextContent);
+}
+
+function linkifyUrlsInContent(html) {
+  return String(html).replace(/(https?:\/\/[^\s<"]+)/g, (url, _match, offset, whole) => {
+    const before = whole.slice(0, offset);
+    const lastOpen = before.lastIndexOf('<a ');
+    const lastClose = before.lastIndexOf('</a>');
+    if (lastOpen > lastClose) {
+      return url;
+    }
+    const hrefPrefix = before.slice(-7);
+    if (hrefPrefix === 'href="' || hrefPrefix === "href='") {
+      return url;
+    }
+    return `<a href="${url}">${url}</a>`;
+  });
+}
+
+export function formatDescriptionHtml(html) {
+  const body = String(html || '').trim();
+  if (!body || !body.includes('<p')) {
+    return body;
+  }
+
+  const result = [];
+  let prevNonEmpty = null;
+
+  for (const rawContent of extractParagraphContents(body)) {
+    const content = rawContent.trim();
+    const isEmpty = !paragraphText(content);
+
+    if (isEmpty) {
+      if (result.length > 0 && isEmptyParagraphHtml(result[result.length - 1])) {
+        continue;
+      }
+      result.push(emptyParagraph());
+      prevNonEmpty = null;
+      continue;
+    }
+
+    const formatted = linkifyUrlsInContent(content);
+
+    if (
+      prevNonEmpty
+      && needsSeparatorBetween(prevNonEmpty, formatted)
+      && (result.length === 0 || !isEmptyParagraphHtml(result[result.length - 1]))
+    ) {
+      result.push(emptyParagraph());
+    }
+
+    result.push(wrapParagraph(formatted));
+    prevNonEmpty = formatted;
+  }
+
+  return result.join('');
+}
+
 export function extractDescriptionHtml(html) {
   const body = String(html || '').trim();
   if (!body) {
@@ -70,15 +171,17 @@ export function extractDescriptionHtml(html) {
       textBlocks.push(content);
     }
   }
+
+  let description = '';
   if (textBlocks.length > 0) {
-    return textBlocks.join('');
+    description = textBlocks.join('');
+  } else if (!body.includes('sqs-layout')) {
+    description = body;
+  } else {
+    description = stripHtml(body);
   }
 
-  if (!body.includes('sqs-layout')) {
-    return body;
-  }
-
-  return stripHtml(body);
+  return formatDescriptionHtml(description);
 }
 
 export function parseByteLength(value) {
@@ -127,8 +230,10 @@ export function normalizeItemXml(itemXml) {
   const changes = { description: false, duration: false, episodeType: false };
 
   const descMatch = itemXml.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/);
-  if (descMatch?.[1].includes('sqs-layout')) {
-    const clean = extractDescriptionHtml(descMatch[1]);
+  if (descMatch) {
+    const clean = descMatch[1].includes('sqs-layout')
+      ? extractDescriptionHtml(descMatch[1])
+      : formatDescriptionHtml(descMatch[1]);
     if (clean && clean !== descMatch[1]) {
       next = replaceItemDescription(next, clean);
       changes.description = true;

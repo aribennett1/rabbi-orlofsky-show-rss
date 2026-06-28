@@ -29,6 +29,24 @@ export function escapeXml(text) {
     .replace(/'/g, '&apos;');
 }
 
+function decodeXmlEntities(text) {
+  return String(text)
+    .replace(/&amp;/g, '&')
+    .replace(/&apos;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
+/** Encode a URL for use in a double-quoted XML attribute (enclosure/media:content). */
+export function escapeUrlForXmlAttribute(url) {
+  return decodeXmlEntities(url)
+    .replace(/'/g, '%27')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;');
+}
+
 export function stripHtml(html) {
   return String(html)
     .replace(/<br\s*\/?>/gi, '\n')
@@ -362,8 +380,8 @@ export function buildItemXml(item, { mp3Url, length }) {
   parts.push(
     `<itunes:title>${escapeXml(title)}</itunes:title>`,
     '<itunes:episodeType>full</itunes:episodeType>',
-    `<enclosure url="${escapeXml(mp3Url.trim())}" length="${length}" type="audio/mpeg"/>`,
-    `<media:content url="${escapeXml(mp3Url.trim())}" length="${length}" type="audio/mpeg" isDefault="true" medium="audio"><media:title type="plain">${escapeXml(title)}</media:title></media:content>`,
+    `<enclosure url="${escapeUrlForXmlAttribute(mp3Url.trim())}" length="${length}" type="audio/mpeg"/>`,
+    `<media:content url="${escapeUrlForXmlAttribute(mp3Url.trim())}" length="${length}" type="audio/mpeg" isDefault="true" medium="audio"><media:title type="plain">${escapeXml(title)}</media:title></media:content>`,
     '</item>',
   );
 

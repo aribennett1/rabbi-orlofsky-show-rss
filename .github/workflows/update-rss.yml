@@ -1,10 +1,6 @@
 name: Update RSS Feed
 
 on:
-  schedule:
-    # 9:02 AM Eastern year-round (GitHub cron is UTC-only; guard step picks the right run).
-    - cron: '2 13 * * *'
-    - cron: '2 14 * * *'
   workflow_dispatch:
 
 permissions:

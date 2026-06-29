@@ -12,7 +12,7 @@ The same 300-item cap applies to other podcasts on the site. As those feeds grow
 
 1. **Full feeds on GitHub Pages** — XML files in this repo are the canonical feeds, with complete archives where needed.
 2. **Squarespace redirects** — 301s on the old RSS URLs send podcast clients to GitHub Pages. Each synced feed includes `<itunes:new-feed-url>` pointing at itself (see [Feed migration](#feed-migration) below).
-3. **Daily sync** — A GitHub Action runs `merge-feed.js`, which fetches the 20 most recent posts from each Squarespace collection's JSON API and prepends any new episodes by GUID. Existing items are never removed or replaced.
+3. **Daily sync** — Google Apps Script triggers a GitHub Action daily at **9:02 AM Eastern**, which runs `merge-feed.js`. The script fetches the 20 most recent posts from each Squarespace collection's JSON API and prepends any new episodes by GUID. Existing items are never removed or replaced.
 
 ## Feeds
 
@@ -45,7 +45,22 @@ npm run merge
 
 ## GitHub Action
 
-The workflow in `.github/workflows/update-rss.yml` runs daily at **9:02 AM Eastern** (DST-aware via dual UTC crons) and can be triggered manually from the Actions tab. It merges `rss-feed.xml`, `parsha-in-5.xml`, and `q-and-a.xml`, then commits and pushes if any changed.
+The workflow in `.github/workflows/update-rss.yml` is triggered by `workflow_dispatch` — either manually from the Actions tab or by an external scheduler. A Google Apps Script time-driven trigger calls the GitHub API daily at **9:02 AM Eastern**.
+
+The workflow merges `rss-feed.xml`, `parsha-in-5.xml`, and `q-and-a.xml`, then commits and pushes if any changed.
+
+To trigger manually via API:
+
+```bash
+curl -X POST \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  https://api.github.com/repos/aribennett1/rabbi-orlofsky-show-rss/actions/workflows/update-rss.yml/dispatches \
+  -d '{"ref":"main"}'
+```
+
+The token needs **Actions: Read and write** on this repository (fine-grained PAT recommended). Store it in the Apps Script project's Script Properties as `GITHUB_TOKEN`, not in source code.
 
 ## Feed migration
 

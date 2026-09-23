@@ -5,6 +5,8 @@
   "scripts": {
     "backfill": "node scripts/backfill.js",
     "merge": "node scripts/merge-feed.js",
-    "normalize": "node scripts/normalize-feeds.js"
+    "normalize": "node scripts/normalize-feeds.js",
+    "setup:transcribe": "python3 -m venv .venv && .venv/bin/python -m pip install --upgrade pip && .venv/bin/python -m pip install mlx-whisper",
+    "transcribe:qa": "node scripts/transcribe-q-and-a.js"
   }
 }

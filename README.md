@@ -39,9 +39,24 @@ npm run backfill
 
 # Sync recent episodes from Squarespace JSON into all three podcast feeds
 npm run merge
+
+# Locally transcribe missing Q&A episodes into Transcriptions/
+npm run transcribe:qa
 ```
 
 `merge-feed.js` processes each feed listed in `scripts/lib/constants.js` (`MERGE_FEEDS`). Pass `--dry-run` to preview changes without writing files.
+
+`transcribe:qa` reads `q-and-a.xml`, numbers episodes from oldest to newest, and writes files named `{episode number} - {Title}.txt` in `Transcriptions/`. Each file starts with a Markdown link to the Q&A episode page. It uses local `mlx_whisper`, installed into a repo-local Python virtual environment:
+
+```bash
+npm run setup:transcribe
+
+# Preview what would be created
+npm run transcribe:qa -- --dry-run
+
+# Limit a test run to one missing transcript
+npm run transcribe:qa -- --limit 1
+```
 
 ## GitHub Action
 

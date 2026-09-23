@@ -11,6 +11,8 @@ const OUTPUT_DIR = path.join(ROOT, 'Transcriptions');
 const TEMP_DIR = path.join(OUTPUT_DIR, '.tmp');
 const LOCAL_MLX_WHISPER = path.join(ROOT, '.venv', 'bin', 'mlx_whisper');
 const DEFAULT_MODEL = 'mlx-community/whisper-large-v3-turbo';
+const DOWNLOAD_ATTEMPTS = 5;
+const DOWNLOAD_TIMEOUT_MS = 120000;
 
 function parseArgs(argv) {
   const args = {
@@ -120,17 +122,47 @@ function run(command, args, options = {}) {
   });
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function formatDownloadError(error) {
+  const cause = error?.cause;
+  if (cause?.code) {
+    return `${cause.code}: ${cause.message || error.message}`;
+  }
+  return error.message || String(error);
+}
+
 async function downloadFile(url, destination) {
-  const response = await fetch(url, {
-    headers: { 'User-Agent': USER_AGENT },
-    signal: AbortSignal.timeout(120000),
-  });
-  if (!response.ok) {
-    throw new Error(`GET ${url} returned ${response.status}`);
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= DOWNLOAD_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetch(url, {
+        headers: { 'User-Agent': USER_AGENT },
+        signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+      });
+      if (!response.ok) {
+        throw new Error(`GET ${url} returned ${response.status}`);
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      await fs.writeFile(destination, buffer);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt === DOWNLOAD_ATTEMPTS) {
+        break;
+      }
+
+      const delayMs = Math.min(30000, 2000 * 2 ** (attempt - 1));
+      console.warn(`Download failed (${formatDownloadError(error)}). Retrying in ${delayMs / 1000}s...`);
+      await sleep(delayMs);
+    }
   }
 
-  const buffer = Buffer.from(await response.arrayBuffer());
-  await fs.writeFile(destination, buffer);
+  throw lastError;
 }
 
 async function transcribeEpisode(episode, args) {

@@ -82,7 +82,8 @@ function parseEpisodes(xml) {
     const link = extractTag(itemXml, 'link');
     const audioUrl = extractEnclosureUrl(itemXml);
     const episodeNumber = index + 1;
-    const filename = `${episodeNumber} - ${sanitizeFilePart(title)}.txt`;
+    const paddedEpisodeNumber = String(episodeNumber).padStart(4, '0');
+    const filename = `${paddedEpisodeNumber} - ${sanitizeFilePart(title)}.txt`;
 
     return {
       audioUrl,
